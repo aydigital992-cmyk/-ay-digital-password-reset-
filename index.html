@@ -1,1 +1,255 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Récupération du mot de passe | AY Digital Boutique</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: grid;
+      place-items: center;
+      background: #0b1020;
+      color: #f5f7ff;
+      font-family: Arial, sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 430px;
+      padding: 28px;
+      border: 1px solid #25365a;
+      border-radius: 18px;
+      background: #111a2e;
+      box-shadow: 0 15px 50px #0005;
+    }
+    h1 { margin: 0 0 10px; font-size: 25px; }
+    p { color: #b8c5df; line-height: 1.6; }
+    label { display: block; margin: 18px 0 8px; }
+    input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #34476c;
+      border-radius: 9px;
+      background: #091224;
+      color: white;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      border: 0;
+      border-radius: 9px;
+      background: #2674ff;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; }
+    .hidden { display: none; }
+    #message {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+    }
+    .success { background: #123b30; color: #a7f3d0; }
+    .error { background: #451d2a; color: #fecdd3; }
+    .brand { color: #65a4ff; font-weight: bold; margin-bottom: 22px; }
+    .small { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">AY DIGITAL BOUTIQUE</div>
+
+    <section id="requestSection">
+      <h1>Mot de passe oublié ?</h1>
+      <p>Entrez votre adresse e-mail. Nous vous enverrons un lien pour créer un nouveau mot de passe.</p>
+      <form id="requestForm">
+        <label for="email">Adresse e-mail</label>
+        <input id="email" type="email" autocomplete="email" required
+               placeholder="vous@exemple.com">
+        <button id="requestButton" type="submit">Envoyer le lien</button>
+      </form>
+    </section>
+
+    <section id="resetSection" class="hidden">
+      <h1>Nouveau mot de passe</h1>
+      <p>Choisissez un nouveau mot de passe pour votre compte.</p>
+      <form id="resetForm">
+        <label for="password">Nouveau mot de passe</label>
+        <input id="password" type="password" minlength="8"
+               autocomplete="new-password" required
+               placeholder="8 caractères minimum">
+        <label for="confirmPassword">Confirmer le mot de passe</label>
+        <input id="confirmPassword" type="password" minlength="8"
+               autocomplete="new-password" required
+               placeholder="Retapez le mot de passe">
+        <button id="resetButton" type="submit">Changer le mot de passe</button>
+      </form>
+    </section>
+
+    <div id="message" class="hidden" role="status" aria-live="polite"></div>
+    <p class="small">Si vous n'avez pas demandé cette modification, ignorez l'e-mail.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://xngdesljrwquncqirwoa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_qwSy_TcTcz3229m6kCqPEQ_mm7ocNhF";
+
+    const client = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      }
+    );
+
+    const requestSection = document.getElementById("requestSection");
+    const resetSection = document.getElementById("resetSection");
+    const messageBox = document.getElementById("message");
+    const requestButton = document.getElementById("requestButton");
+    const resetButton = document.getElementById("resetButton");
+
+    function showMessage(text, isError = false) {
+      messageBox.textContent = text;
+      messageBox.className = isError ? "error" : "success";
+    }
+
+    function showResetForm() {
+      requestSection.classList.add("hidden");
+      resetSection.classList.remove("hidden");
+    }
+
+    function showRequestForm() {
+      resetSection.classList.add("hidden");
+      requestSection.classList.remove("hidden");
+    }
+
+    document.getElementById("requestForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      messageBox.className = "hidden";
+      requestButton.disabled = true;
+      requestButton.textContent = "Envoi en cours...";
+
+      try {
+        const email = document.getElementById("email").value.trim();
+        const redirectTo = window.location.origin + window.location.pathname;
+
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo
+        });
+
+        if (error) throw error;
+
+        showMessage("Si cette adresse correspond à un compte, un e-mail de récupération va être envoyé. Vérifiez aussi vos courriers indésirables.");
+      } catch (error) {
+        showMessage("Impossible d'envoyer le lien. Vérifiez la configuration Supabase et réessayez.", true);
+        console.error(error);
+      } finally {
+        requestButton.disabled = false;
+        requestButton.textContent = "Envoyer le lien";
+      }
+    });
+
+    document.getElementById("resetForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      messageBox.className = "hidden";
+
+      const password = document.getElementById("password").value;
+      const confirmation = document.getElementById("confirmPassword").value;
+
+      if (password.length < 8) {
+        showMessage("Le mot de passe doit contenir au moins 8 caractères.", true);
+        return;
+      }
+
+      if (password !== confirmation) {
+        showMessage("Les deux mots de passe ne correspondent pas.", true);
+        return;
+      }
+
+      resetButton.disabled = true;
+      resetButton.textContent = "Modification en cours...";
+
+      try {
+        const { data: { session } } = await client.auth.getSession();
+
+        if (!session) {
+          throw new Error("SESSION_EXPIRED");
+        }
+
+        const { error } = await client.auth.updateUser({ password });
+
+        if (error) throw error;
+
+        showMessage("Votre mot de passe a été modifié avec succès. Vous pouvez retourner à la boutique.");
+        document.getElementById("resetForm").reset();
+        resetSection.classList.add("hidden");
+      } catch (error) {
+        showMessage(
+          error.message === "SESSION_EXPIRED"
+            ? "Le lien est invalide ou expiré. Demandez un nouveau lien de récupération."
+            : "La modification a échoué. Le lien peut être expiré ; demandez-en un nouveau.",
+          true
+        );
+        console.error(error);
+      } finally {
+        resetButton.disabled = false;
+        resetButton.textContent = "Changer le mot de passe";
+      }
+    });
+
+    client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        showResetForm();
+        showMessage("Lien vérifié. Vous pouvez choisir votre nouveau mot de passe.");
+      }
+    });
+
+    (async function init() {
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const params = new URLSearchParams(window.location.search);
+      const isRecovery = hash.get("type") === "recovery"
+        || params.get("type") === "recovery";
+
+      if (hash.get("error") || params.get("error")) {
+        showMessage("Le lien est invalide ou expiré. Demandez un nouveau lien.", true);
+        showRequestForm();
+        return;
+      }
+
+      if (isRecovery) {
+        const { data: { session } } = await client.auth.getSession();
+        if (session) {
+          showResetForm();
+          showMessage("Vous pouvez choisir votre nouveau mot de passe.");
+        } else {
+          showMessage("Vérification du lien en cours. Si le lien a expiré, demandez-en un nouveau.");
+          setTimeout(() => {
+            client.auth.getSession().then(({ data }) => {
+              if (data.session) {
+                showResetForm();
+              } else {
+                showRequestForm();
+              }
+            });
+          }, 1200);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
